@@ -1,0 +1,7 @@
+admin
+dev
+root
+portal
+test
+experimental
+api
