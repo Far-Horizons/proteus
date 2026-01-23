@@ -4,13 +4,14 @@ import os
 import argparse
 import subprocess
 import re
+import math
 from collections import Counter
 from dataclasses import dataclass
 from typing import Optional
 
 class ProteusHarvester:
     def __init__(self, config: "ProteusConfig"):
-        self.config: ProteusConfig = config
+        self.config = config
         self.harvestCounter = Counter() # harvested words, along with how many times they appear. This does not automatically sort by rank (use .most_common())
     
     def harvest(self):
@@ -44,10 +45,11 @@ class ProteusHarvester:
 
 class ProteusPermutator:
     def __init__(self, config: "ProteusConfig"):
-        self.config: ProteusConfig = config
-        self.permutators: list[str] = []
-        self.input_domains: list[str] = []
+        self.config = config
+        self.permutators: set[str] = set()
+        self.input_domains: set[str] = set()
         self.generated_domains: set[str] = set()
+
     
     def build_permutator_list(self, harvested_words: Optional[list[str]] = None):
         if harvested_words is None:
@@ -56,8 +58,9 @@ class ProteusPermutator:
         if self.config.useBaselist:
             with open(self.config.baselist, "r") as bl:
                 for word in bl:
-                    if word not in self.permutators:
-                        self.permutators.append(word)
+                    word = word.strip().lower()
+                    if word:
+                        self.permutators.add(word)
 
         if self.config.harvest:
             i = 0
@@ -65,18 +68,18 @@ class ProteusPermutator:
                 if i >= self.config.maxHarvestedWords:
                     break
                 if word not in self.permutators:
-                    self.permutators.append(word)
+                    self.permutators.add(word)
                     i += 1
 
-    def get_permutator_list(self):
-        return self.permutators
     
     def read_input_domains(self):
         with open(self.config.file, "r") as f:
             for line in f:
+                line = line.strip().lower()
                 if not re.fullmatch(r'[a-z0-9\-.]+', line): # Filters empty lines, comments, and invalid (anything not a-z 0-9 - . (allowed character of a domain))
                     continue
-                self.input_domains.append(line)
+                self.input_domains.add(line)
+
     
     def permutate(self):
         if not self.permutators:
@@ -87,7 +90,67 @@ class ProteusPermutator:
                 gen = f"{perm}.{domain}".strip().lower()
                 if gen not in self.input_domains:
                     self.generated_domains.add(gen)
-                    
+    
+    def write_generated_domains(self):
+        # check if generated domains output file already exists
+        if os.path.exists(self.config.permutatorOutput):
+            raise FileExistsError(ErrorMessages.FILE_ALREADY_EXISTS.format(self.config.permutatorOutput))
+        
+        with open(self.config.permutatorOutput, "w") as f:
+            for l in self.generated_domains:
+                f.write(l + "\n")
+    
+    
+class ProteusResolver:
+    def __init__(self, config: "ProteusConfig"):
+        self.config = config
+    
+    def resolve(self):
+        if not os.path.exists(self.config.permutatorOutput) or os.path.getsize(self.config.permutatorOutput) == 0:
+            raise ValueError(ErrorMessages.RESOLVER_NO_TARGETS)
+
+        subprocess.run(
+            ["dnsx",
+             "-l", f"{self.config.permutatorOutput}",
+             "-a", "-stats",
+             "-o", f"{self.config.resolverOutput}",
+             "-t", f"{self.config.threadsResolver}",
+             "-rl", f"{self.config.rateResolver}"],
+             check=True
+        )
+    
+    def print_resolve_time(self):
+        if not os.path.exists(self.config.permutatorOutput):
+            raise FileNotFoundError(ErrorMessages.GENERATED_FILE_DOES_NOT_EXIST.format(self.config.permutatorOutput))
+        
+        if self.config.rateResolver < 1:
+            print("unable to do a time estimate, as the rate is unlimited")
+            return
+        
+        with open(self.config.permutatorOutput, "r") as f:
+            lines = sum(1 for _ in f)
+        
+        resolve_time_minimum =  math.ceil(lines / self.config.rateResolver)
+        
+        resolve_hours = resolve_time_minimum // 3600
+        resolve_remaining = resolve_time_minimum % 3600
+        resolve_minutes = resolve_remaining // 60
+        resolve_seconds = resolve_remaining % 60
+
+        resolve_estimate = ""
+        if resolve_hours > 0:
+            resolve_estimate += f"hours: {resolve_hours}"
+        if resolve_minutes > 0:
+            if resolve_estimate != "":
+                resolve_estimate += ", "
+            resolve_estimate += f"minutes: {resolve_minutes}"
+        if resolve_seconds > 0:
+            if resolve_estimate != "":
+                resolve_estimate += ", "
+            resolve_estimate += f"seconds: {resolve_seconds}"
+
+        print(f"Estimated time to attempt resolving all generated domains ({lines}) is: {resolve_estimate}. This estimate is assuming that the resolver runs at the maximum set rate of {self.config.rateResolver} the whole time, which may not be true if dnsx is bottlenecked by assigned threads, bandwith, or rate-limiting")
+
 
 
 class ProteusArgManager:
@@ -141,8 +204,8 @@ class ProteusArgManager:
         self.parser.add_argument(
             "-rr", "--rate-resolver",
             type=int,
-            default=-1,
-            help="set a rate limit for the resolver (dnsx). Any negative value will be interpreted as unlimited. Note that rates over 300 may lead to rate-limiting [DEFAULT: -1 (none)]"
+            default=200,
+            help="set a rate limit for the resolver (dnsx). Any negative value will be interpreted as unlimited. Note that rates over 300 may lead to rate-limiting [DEFAULT: 200]"
         )
 
         # Behavior
@@ -162,6 +225,11 @@ class ProteusArgManager:
             action='store_true',
             help="enable silent mode [DEFAULT: False]"
         )
+        self.parser.add_argument(
+            "--low-ram-mode",
+            action='store_true',
+            help="large lists of generated domains can cause issues when loaded into dnsx on small machines (like a 1vcpu/1gb ram VPS). This mode splits the list into parts and runs multiple, smaller dnsx cycles to solve this issue (currently not implemented) [DEFAULT: False]"
+        )
 
         # permutation strategies (not implemented yet)
         self.parser.add_argument(
@@ -169,7 +237,7 @@ class ProteusArgManager:
             type=str,
             default="simple",
             choices=["simple", "hyphenate", "insert", "complex"],
-            help="Set the permutation strategy to use. options:\nsimple (prepend the permutator to the domain, seperated by a .)\nhyphenate (prepend the permutator to the domain, separated by a -)\ninsert (insert the permutator between parts of known domains)\ncomplex (a mix of the afformentioned strategies. Be warned: even a small list with this strategy will lead to large amount of generated domains)" 
+            help="Set the permutation strategy to use. options:\nsimple (prepend the permutator to the domain, seperated by a .)\nhyphenate (prepend the permutator to the domain, separated by a -)\ninsert (insert the permutator between parts of known domains)\ncomplex (a mix of the afformentioned strategies. Be warned: even a small list with this strategy will lead to large amount of generated domains) [DEFAULT: simple]" 
         )
 
         # Outputs
@@ -184,6 +252,12 @@ class ProteusArgManager:
             type=str,
             default="harvester_output.txt",
             help="set the output file for the harvester [DEFAULT harvester_output.txt]"
+        )
+        self.parser.add_argument(
+            "-go", "--permutator-output",
+            type=str,
+            default="generated_domains.txt",
+            help="set the output for the permutator. This file contains all of the domains generated by the permutator, including those that don't resolve [DEFAULT: generated_domains.txt]"
         )
 
         # Dangerous arguments
@@ -208,7 +282,8 @@ class ProteusArgManager:
             silent=args.silent,
             overwriteFiles=args.overwrite_files,
             harvesterOutput=args.harvester_output,
-            resolverOutput=args.resolver_output
+            resolverOutput=args.resolver_output,
+            permutatorOutput=args.permutator_output
         )
 
         # normalize input file path
@@ -243,6 +318,7 @@ class ProteusArgManager:
         # Normalize output paths
         config.harvesterOutput = os.path.abspath(os.path.expanduser(config.harvesterOutput))
         config.resolverOutput = os.path.abspath(os.path.expanduser(config.resolverOutput))
+        config.permutatorOutput = os.path.abspath(os.path.expanduser(config.permutatorOutput))
         
         # Raise an error if there is conflict in verbosity settings
         if config.verbose and config.silent:
@@ -274,7 +350,7 @@ class ProteusConfig:
     file: str                                       # [REQUIRED] set a target file containing the subdomains to use for permutation
     baselist: str = "default"                       # use a custom preset list of words for permutation. If no custom list is set proteus uses the default list.
     threadsResolver: int = 100                      # dnsx threads  (default 100)
-    rateResolver: int = -1                          # dnsx rate limit   (default -1)
+    rateResolver: int = 200                         # dnsx rate limit   (default 200)
     resolve: bool = True                            # use dnsx resolution   (default True)
     useBaselist: bool = True                        # use a base list for permutations  (default True)
     harvest: bool = True                            # Harvest words to use in permutating   (default True)
@@ -283,7 +359,8 @@ class ProteusConfig:
     silent: bool = False                            # Enable silent mode (default False)
     overwriteFiles: bool = False                    # Overwrite files if they already exist (default False)
     harvesterOutput: str = "harvester_output.txt"   # harvester output file (default harvester_output.txt)
-    resolverOutput: str = "resolver_output.txt"     # resolver output file (default resoler_output.txt)
+    resolverOutput: str = "resolved_domains.txt"    # resolver output file (default resolved_domains.txt)
+    permutatorOutput: str = "generated_domains.txt" # permutator output file (default generated_domains.txt)
     permutationStrategy: str = "simple"             # permutation strategy to use (default simple)
 
 @dataclass
@@ -300,4 +377,47 @@ class ErrorMessages:
     NO_RESOLVER_THREADS = "!!!\nYou set the resolver to use {} threads, but it requires at least 1 thread\n!!!"
     MAX_HARVEST_TOO_LOW = "!!!\nYou set the maximum harvested words to {}. This means no words will be harvested, but harvesting is not disabled. If you don't want any words to be harvested, instead turn off harvesting with --no-harvest\n!!!"
     FILE_ALREADY_EXISTS = "!!!\nThe file {} already exists. Either select a different name for this output file, or enable file overwriting\n!!!"
+    RESOLVER_NO_TARGETS = "!!!\nSomething went wrong! The resolver did not receive any targets\n!!!"
+    GENERATED_FILE_DOES_NOT_EXIST = "!!!\nThe file containing the generated domains does not exist: {}\n!!!"
     PLACEHOLDER_ERROR = "!!!\nPLACEHOLDER ERROR MESSAGE\n!!!"
+
+
+
+
+def main():
+    arg_manager = ProteusArgManager()
+    config = arg_manager.parse()
+
+    if not config.silent:
+        print("starting proteus")
+
+    if config.harvest:
+        if not config.silent:
+            print("harvesting words")
+        harvester = ProteusHarvester(config)
+        harvester.harvest()
+        harvester.write_harvest_ranking()
+    
+    if not config.silent:
+        print("permutating domains")
+    permutator = ProteusPermutator(config)
+    if config.harvest:
+        permutator.build_permutator_list(harvester.get_harvested_words())
+    else:
+        permutator.build_permutator_list()
+    permutator.read_input_domains()
+    permutator.permutate()
+    permutator.write_generated_domains()
+
+    if config.resolve:
+        if not config.silent:
+            print("resolving generated domains")
+        resolver = ProteusResolver(config)
+        resolver.print_resolve_time()
+        resolver.resolve()
+    
+    if not config.silent:
+        print("proteus completed")
+    
+if __name__ == "__main__":
+    main()
