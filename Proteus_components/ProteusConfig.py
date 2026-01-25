@@ -1,23 +1,23 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
 class ProteusConfig:
-    file: str                                       # [REQUIRED] set a target file containing the subdomains to use for permutation
-    baselist: str = "default"                       # use a custom preset list of words for permutation. If no custom list is set proteus uses the default list.
-    threadsResolver: int = 100                      # dnsx threads  (default 100)
-    rateResolver: int = 200                         # dnsx rate limit   (default 200)
-    resolve: bool = True                            # use dnsx resolution   (default True)
-    useBaselist: bool = True                        # use a base list for permutations  (default True)
-    harvest: bool = True                            # Harvest words to use in permutating   (default True)
-    maxHarvestedWords: int = 200                    # Limit to the amount of harvested words used for permutating (default 200)
-    verbose: bool = False                           # Enable verbose mode (default False)
-    silent: bool = False                            # Enable silent mode (default False)
-    overwriteFiles: bool = False                    # Overwrite files if they already exist (default False)
-    harvesterOutput: str = "harvester_output.txt"   # harvester output file (default harvester_output.txt)
-    resolverOutput: str = "resolved_domains.txt"    # resolver output file (default resolved_domains.txt)
-    permutatorOutput: str = "generated_domains.txt" # permutator output file (default generated_domains.txt)
-    permutationStrategy: list[str] = ["simple"]     # permutation strategy to use (default simple)
+    file: str                                               # [REQUIRED] set a target file containing the subdomains to use for permutation
+    baselist: str = "default"                               # use a custom preset list of words for permutation. If no custom list is set proteus uses the default list.
+    threadsResolver: int = 100                              # dnsx threads  (default 100)
+    rateResolver: int = 200                                 # dnsx rate limit   (default 200)
+    resolve: bool = True                                    # use dnsx resolution   (default True)
+    useBaselist: bool = True                                # use a base list for permutations  (default True)
+    harvest: bool = True                                    # Harvest words to use in permutating   (default True)
+    maxHarvestedWords: int = 200                            # Limit to the amount of harvested words used for permutating (default 200)
+    verbose: bool = False                                   # Enable verbose mode (default False)
+    silent: bool = False                                    # Enable silent mode (default False)
+    overwriteFiles: bool = False                            # Overwrite files if they already exist (default False)
+    harvesterOutput: str = "harvester_output.txt"           # harvester output file (default harvester_output.txt)
+    resolverOutput: str = "resolved_domains.txt"            # resolver output file (default resolved_domains.txt)
+    permutatorOutput: str = "generated_domains.txt"         # permutator output file (default generated_domains.txt)
+    permutationStrategy: list = field(default_factory=list) # permutation strategy to use (default simple)
 
 @dataclass
 class ErrorMessages:
