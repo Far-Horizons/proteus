@@ -30,6 +30,7 @@ def main():
     permutator.read_input_domains()
     permutator.permutate_simple_actions()
     permutator.permutate_insertion()
+    permutator.permutate_append_hyphenate()
     permutator.write_generated_domains()
 
     if config.resolve:

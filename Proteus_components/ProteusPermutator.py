@@ -87,7 +87,28 @@ class ProteusPermutator:
                         self.generated_domains.add(res)
                     insertions_done += 1
 
+    def permutate_append_hyphenate(self):
+        if not self.permutators:
+            self.build_permutator_set()
+        
+        if "append-hyphenate" not in self.config.permutationStrategy:
+            return
 
+        for domain in self.input_domains:
+            for perm in self.permutators:
+                parts = domain.split(".")
+                if len(parts) <= 2:
+                    continue
+                appends = len(parts) - 2
+                appends_done = 0
+                while appends_done < appends:
+                    gen = parts.copy()
+                    gen[appends_done] += f"-{perm}"
+                    res = ".".join(gen)
+                    
+                    if res not in self.input_domains:
+                        self.generated_domains.add(res)
+                    appends_done += 1
     
     def write_generated_domains(self):
         # check if generated domains output file already exists

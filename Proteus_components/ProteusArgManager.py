@@ -88,7 +88,7 @@ class ProteusArgManager:
             type=str,
             nargs="+",
             default=["simple"],
-            choices=["simple", "hyphenate", "insert", "all"],
+            choices=["simple", "hyphenate", "insert", "append-hyphenate", "all"],
             help="Set the permutation strategy to use. options:\nsimple (prepend the permutator to the domain, seperated by a .)\nhyphenate (prepend the permutator to the domain, separated by a -)\ninsert (insert the permutator between parts of known domains)\nall (a mix of the afformentioned strategies. Be warned: even a small list with this strategy will lead to large amount of generated domains) [DEFAULT: simple]" 
         )
 
@@ -195,7 +195,7 @@ class ProteusArgManager:
         # Normalize strategy selection
         config.permutationStrategy = [ps.lower() for ps in config.permutationStrategy]
         if "all" in config.permutationStrategy:
-            config.permutationStrategy = ["simple", "hyphenate", "insert"]
+            config.permutationStrategy = ["simple", "hyphenate", "insert", "append-hyphenate"]
         elif len(config.permutationStrategy) != len(set(config.permutationStrategy)):
             config.permutationStrategy = list(set(config.permutationStrategy)) # convert to set then back to list to remove duplicates
         
