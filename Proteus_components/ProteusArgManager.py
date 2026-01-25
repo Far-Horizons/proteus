@@ -86,9 +86,10 @@ class ProteusArgManager:
         self.parser.add_argument(
             "-ps", "--permutation-strategy",
             type=str,
-            default="simple",
-            choices=["simple", "hyphenate", "insert", "complex"],
-            help="Set the permutation strategy to use. options:\nsimple (prepend the permutator to the domain, seperated by a .)\nhyphenate (prepend the permutator to the domain, separated by a -)\ninsert (insert the permutator between parts of known domains)\ncomplex (a mix of the afformentioned strategies. Be warned: even a small list with this strategy will lead to large amount of generated domains) [DEFAULT: simple]" 
+            nargs="+",
+            default=["simple"],
+            choices=["simple", "hyphenate", "insert", "all"],
+            help="Set the permutation strategy to use. options:\nsimple (prepend the permutator to the domain, seperated by a .)\nhyphenate (prepend the permutator to the domain, separated by a -)\ninsert (insert the permutator between parts of known domains)\nall (a mix of the afformentioned strategies. Be warned: even a small list with this strategy will lead to large amount of generated domains) [DEFAULT: simple]" 
         )
 
         # Outputs
@@ -134,7 +135,8 @@ class ProteusArgManager:
             overwriteFiles=args.overwrite_files,
             harvesterOutput=args.harvester_output,
             resolverOutput=args.resolver_output,
-            permutatorOutput=args.permutator_output
+            permutatorOutput=args.permutator_output,
+            permutationStrategy=args.permutation_strategy
         )
 
         # normalize input file path
@@ -189,6 +191,13 @@ class ProteusArgManager:
         
         if config.maxHarvestedWords < 1 and config.harvest:
             self.parser.error(ErrorMessages.MAX_HARVEST_TOO_LOW.format(config.maxHarvestedWords))
+        
+        # Normalize strategy selection
+        config.permutationStrategy = [ps.lower() for ps in config.permutationStrategy]
+        if "all" in config.permutationStrategy:
+            config.permutationStrategy = ["simple", "hyphenate", "insert"]
+        elif len(config.permutationStrategy) != len(set(config.permutationStrategy)):
+            config.permutationStrategy = list(set(config.permutationStrategy)) # convert to set then back to list to remove duplicates
         
         # [TODO] Still have to implement checks for if output files already exist, and if output files should be overwritten
 

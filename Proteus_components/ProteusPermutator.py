@@ -13,7 +13,7 @@ class ProteusPermutator:
         self.generated_domains: set[str] = set()
 
     
-    def build_permutator_list(self, harvested_words: Optional[list[str]] = None):
+    def build_permutator_set(self, harvested_words: Optional[list[str]] = None):
         if harvested_words is None:
             harvested_words = []
 
@@ -43,15 +43,51 @@ class ProteusPermutator:
                 self.input_domains.add(line)
 
     
-    def permutate(self):
+    def permutate_simple_actions(self):
         if not self.permutators:
-            self.build_permutator_list()
+            self.build_permutator_set()
+
+        seps = []
+        if "simple" in self.config.permutationStrategy:
+            seps.append(".")
+        if "hyphenate" in self.config.permutationStrategy:
+            seps.append("-")
         
+        if not seps:
+            return
+        
+        for sep in seps:
+            for domain in self.input_domains:
+                for perm in self.permutators:
+                    gen = f"{perm}{sep}{domain}".strip().lower()
+                    if gen not in self.input_domains:
+                        self.generated_domains.add(gen)
+    
+    def permutate_insertion(self):
+        if not self.permutators:
+            self.build_permutator_set()
+        
+        if "insert" not in self.config.permutationStrategy:
+            return
+
         for domain in self.input_domains:
             for perm in self.permutators:
-                gen = f"{perm}.{domain}".strip().lower()
-                if gen not in self.input_domains:
-                    self.generated_domains.add(gen)
+                parts = domain.split(".")
+                if len(parts) <= 2:
+                    continue
+                insertions = len(parts) - 2 # insertions are done after every part except for domain and TLD
+                insertions_done = 0
+                while insertions_done < insertions:
+                    position = insertions_done + 1
+                    gen = parts.copy()
+                    gen.insert(position, perm)
+                    res = ".".join(gen)
+                    
+                    if res not in self.input_domains:
+                        self.generated_domains.add(res)
+                    insertions_done += 1
+
+
     
     def write_generated_domains(self):
         # check if generated domains output file already exists

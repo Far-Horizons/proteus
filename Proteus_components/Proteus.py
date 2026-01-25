@@ -24,11 +24,12 @@ def main():
         print("permutating domains")
     permutator = ProteusPermutator(config)
     if config.harvest:
-        permutator.build_permutator_list(harvester.get_harvested_words())
+        permutator.build_permutator_set(harvester.get_harvested_words())
     else:
-        permutator.build_permutator_list()
+        permutator.build_permutator_set()
     permutator.read_input_domains()
-    permutator.permutate()
+    permutator.permutate_simple_actions()
+    permutator.permutate_insertion()
     permutator.write_generated_domains()
 
     if config.resolve:

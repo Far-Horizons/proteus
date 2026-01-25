@@ -17,7 +17,7 @@ class ProteusConfig:
     harvesterOutput: str = "harvester_output.txt"   # harvester output file (default harvester_output.txt)
     resolverOutput: str = "resolved_domains.txt"    # resolver output file (default resolved_domains.txt)
     permutatorOutput: str = "generated_domains.txt" # permutator output file (default generated_domains.txt)
-    permutationStrategy: str = "simple"             # permutation strategy to use (default simple)
+    permutationStrategy: list[str] = ["simple"]     # permutation strategy to use (default simple)
 
 @dataclass
 class ErrorMessages:
@@ -35,4 +35,5 @@ class ErrorMessages:
     FILE_ALREADY_EXISTS = "!!!\nThe file {} already exists. Either select a different name for this output file, or enable file overwriting\n!!!"
     RESOLVER_NO_TARGETS = "!!!\nSomething went wrong! The resolver did not receive any targets\n!!!"
     GENERATED_FILE_DOES_NOT_EXIST = "!!!\nThe file containing the generated domains does not exist: {}\n!!!"
+    STRATEGY_ERROR = "!!!\nSomething went wrong in the strategy selection!\n!!!"
     PLACEHOLDER_ERROR = "!!!\nPLACEHOLDER ERROR MESSAGE\n!!!"
