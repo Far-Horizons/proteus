@@ -60,8 +60,9 @@ class ProteusPermutator:
             for domain in self.input_domains:
                 for perm in self.permutators:
                     gen = f"{perm}{sep}{domain}".strip().lower()
-                    if gen not in self.input_domains and (sep == "-" and len(domain.strip().split(".")) == 2):
-                        self.generated_domains.add(gen)
+                    if gen not in self.input_domains:
+                        if sep == "." or (sep == "-" and len(domain.strip().split(".")) >= 3):
+                            self.generated_domains.add(gen)
     
     def permutate_insertion(self):
         if not self.permutators:
