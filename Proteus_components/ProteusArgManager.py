@@ -79,7 +79,7 @@ class ProteusArgManager:
         self.parser.add_argument(
             "--low-ram-mode",
             action='store_true',
-            help="large lists of generated domains can cause issues when loaded into dnsx on small machines (like a 1vcpu/1gb ram VPS). This mode splits the list into parts and runs multiple, smaller dnsx cycles to solve this issue (currently not implemented) [DEFAULT: False]"
+            help="large lists of generated domains can cause issues when loaded into dnsx on small machines (like a 1vcpu/1gb ram VPS). This mode splits the list into parts and runs multiple, smaller dnsx cycles to solve this issue. This mode is slightly slower than the standard mode, but will allow for larger sets of data (currently not implemented) [DEFAULT: False]"
         )
 
         # permutation strategies (not implemented yet)
@@ -136,7 +136,8 @@ class ProteusArgManager:
             harvesterOutput=args.harvester_output,
             resolverOutput=args.resolver_output,
             permutatorOutput=args.permutator_output,
-            permutationStrategy=args.permutation_strategy
+            permutationStrategy=args.permutation_strategy,
+            lowRamMode=args.low_ram_mode
         )
 
         # normalize input file path

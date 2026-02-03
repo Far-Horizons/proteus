@@ -28,10 +28,16 @@ def main():
     else:
         permutator.build_permutator_set()
     permutator.read_input_domains()
-    permutator.permutate_simple_actions()
-    permutator.permutate_insertion()
-    permutator.permutate_append_hyphenate()
-    permutator.write_generated_domains()
+    if config.lowRamMode:
+        permutator.lr_permutate_simple_actions()
+        permutator.lr_permutate_insertion()
+        permutator.lr_permutate_append_hyphenate()
+        permutator.dedup_lr_buffer()
+    else:
+        permutator.permutate_simple_actions()
+        permutator.permutate_insertion()
+        permutator.permutate_append_hyphenate()
+        permutator.write_generated_domains()
 
     if config.resolve:
         if not config.silent:

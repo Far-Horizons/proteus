@@ -18,6 +18,7 @@ class ProteusConfig:
     resolverOutput: str = "resolved_domains.txt"            # resolver output file (default resolved_domains.txt)
     permutatorOutput: str = "generated_domains.txt"         # permutator output file (default generated_domains.txt)
     permutationStrategy: list = field(default_factory=list) # permutation strategy to use (default simple)
+    lowRamMode: bool = False                                # Low ram mode toggle (default False)
 
 @dataclass
 class ErrorMessages:
