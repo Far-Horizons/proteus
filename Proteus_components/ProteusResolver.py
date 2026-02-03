@@ -8,6 +8,7 @@ from ProteusConfig import ProteusConfig, ErrorMessages
 class ProteusResolver:
     def __init__(self, config: ProteusConfig):
         self.config = config
+        self.lowram_entry_limit = 1000000   # 1 million
     
     def resolve(self):
         if not os.path.exists(self.config.permutatorOutput) or os.path.getsize(self.config.permutatorOutput) == 0:
@@ -23,6 +24,66 @@ class ProteusResolver:
              check=True
         )
     
+    # Low-ram version of the resolve method
+    def lr_resolve(self):
+        if not os.path.exists(self.config.permutatorOutput) or os.path.getsize(self.config.permutatorOutput) == 0:
+            raise ValueError(ErrorMessages.RESOLVER_NO_TARGETS)
+
+        if not self.config.silent:
+            print(f"splitting the file of generated domains into files of {self.lowram_entry_limit} lines")
+
+        with open(self.config.permutatorOutput, "r") as f:
+            file_count = 0
+            buffer = []
+
+            for line in f:
+                buffer.append(line)
+
+                if len(buffer) >= self.lowram_entry_limit:
+                    file_count += 1
+                    with open(f"lowram_resolver_split_{file_count}.txt", "w") as out:
+                        out.writelines(buffer)
+                    
+                    buffer.clear()
+            
+            if buffer:
+                file_count += 1
+                with open(f"lowram_resolver_split_{file_count}.txt", "w") as out:
+                        out.writelines(buffer)
+
+        if not self.config.silent:
+            print(f"splitting succeeded, generated {file_count} file(s)")
+
+        for i in range(file_count):
+            if not self.config.silent:
+                print(f"starting resolver cycle {i + 1} of {file_count}")
+
+            subprocess.run(
+                ["dnsx",
+                "-l", f"lowram_resolver_split_{i + 1}.txt",
+                "-a", "-stats",
+                "-o", f"lowram_resolver_output_{i + 1}.txt",
+                "-t", f"{self.config.threadsResolver}",
+                "-rl", f"{self.config.rateResolver}"],
+                check=True)
+        
+        if not self.config.silent:
+            print("completed all resolver cycles, merging the files")
+
+        output = set()
+        for j in range(file_count):
+            with open(f"lowram_resolver_output_{j + 1}.txt", "r") as f:
+                for line in f:
+                    output.add(line)
+        
+        with open(f"{self.config.resolverOutput}", "w") as f:
+            f.writelines(output)
+        
+        if not self.config.silent:
+            print("finsihed merging the files")
+        
+
+
     def print_resolve_time(self):
         if not os.path.exists(self.config.permutatorOutput):
             raise FileNotFoundError(ErrorMessages.GENERATED_FILE_DOES_NOT_EXIST.format(self.config.permutatorOutput))

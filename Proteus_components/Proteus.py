@@ -44,7 +44,10 @@ def main():
             print("resolving generated domains")
         resolver = ProteusResolver(config)
         resolver.print_resolve_time()
-        resolver.resolve()
+        if config.lowRamMode:
+            resolver.lr_resolve()
+        else:
+            resolver.resolve()
     
     if not config.silent:
         print("proteus completed")
