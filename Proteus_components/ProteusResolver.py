@@ -80,8 +80,14 @@ class ProteusResolver:
             f.writelines(output)
         
         if not self.config.silent:
-            print("finsihed merging the files")
+            print("finsihed merging the files, cleaning up extra files")
         
+        for x in range(file_count):
+            os.remove(f"lowram_resolver_split_{x + 1}.txt")
+            os.remove(f"lowram_resolver_output_{x + 1}.txt")
+
+        if not self.config.silent:
+            print("cleanup completed")
 
 
     def print_resolve_time(self):
